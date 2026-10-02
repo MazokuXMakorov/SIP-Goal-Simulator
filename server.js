@@ -1,0 +1,119 @@
+const bcrypt = require('bcryptjs');
+const express = require('express');
+const session = require('express-session');
+const { Pool } = require('pg');
+const path = require('path');
+
+const app = express();
+const port = 3000;
+
+// Database connection
+const pool = new Pool({
+  user: 'sip_admin',
+  host: 'localhost',
+  database: 'sip_db',
+  password: 'admin123',
+  port: 5432,
+});
+
+// Middleware to parse JSON and handle sessions
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public')); // This serves everything in your 'public' folder
+app.use(session({
+    secret: 'super-secret-universe-key',
+    resave: false,
+    saveUninitialized: true
+}));
+
+// Route to serve the main page
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// A quick test route to check DB connection
+app.get('/api/test-db', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT NOW()');
+        res.json({ success: true, time: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- TEMPORARY ROUTE TO FORGE YOUR FIRST USER ---
+app.get('/api/setup-admin', async (req, res) => {
+    try {
+        const salt = await bcrypt.genSalt(10);
+        // We are creating a user 'makorov' with password 'admin123'
+        const hash = await bcrypt.hash('admin123', salt); 
+        
+        await pool.query(
+            'INSERT INTO users (username, password_hash) VALUES ($1, $2) ON CONFLICT DO NOTHING', 
+            ['makorov', hash]
+        );
+        res.send('Admin user "makorov" created with password "admin123". You can head back to localhost:3000 now!');
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- THE LOGIN LOGIC ---
+app.post('/api/login', async (req, res) => {
+    const { username, password } = req.body;
+    
+    try {
+        // 1. Find the user in the database
+        const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+        
+        if (result.rows.length === 0) {
+            return res.send('<h2 style="color:white; background:#121212; text-align:center;">User not found in the matrix.</h2><a href="/">Go back</a>');
+        }
+
+        const user = result.rows[0];
+        
+        // 2. Compare the typed password with the hashed password in the DB
+        const isValid = await bcrypt.compare(password, user.password_hash);
+
+        if (isValid) {
+            // 3. Success! Save them to the session and send them to the dashboard
+            req.session.userId = user.id;
+            res.redirect('/dashboard.html'); 
+        } else {
+            res.send('<h2 style="color:white; background:#121212; text-align:center;">Wrong password, bro.</h2><a href="/">Try again</a>');
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+// --- THE SIGN-UP LOGIC ---
+app.post('/api/signup', async (req, res) => {
+    const { username, password } = req.body;
+
+    try {
+        // 1. Check if the username is already taken
+        const existingUser = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+
+        if (existingUser.rows.length > 0) {
+            return res.send('<h2 style="color:white; background:#121212; text-align:center;">Username already taken.</h2><a href="/signup.html">Try again</a>');
+        }
+
+        // 2. Hash the new password securely
+        const salt = await bcrypt.genSalt(10);
+        const hash = await bcrypt.hash(password, salt);
+
+        // 3. Insert the new user into the database
+        await pool.query(
+            'INSERT INTO users (username, password_hash) VALUES ($1, $2)', 
+            [username, hash]
+        );
+
+        // 4. Send them to the login page
+        res.send('<h2 style="color:white; background:#121212; text-align:center;">Account forged successfully!</h2><a href="/">Click here to log in</a>');
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+app.listen(port, () => {
+    console.log(`The simulator has materialized at http://localhost:${port}`);
+});

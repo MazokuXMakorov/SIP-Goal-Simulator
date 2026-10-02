@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIP & Goal Simulator - Dashboard</title>
+    <!-- Include Chart.js from CDN for local visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #2a2a2a;
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+        }
+        h1 { color: #00ffcc; margin: 0; font-size: 24px; }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+        }
+        @media (max-width: 900px) {
+            .container { grid-template-columns: 1fr; }
+        }
+        .card {
+            background-color: #1e1e1e;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.8);
+            border-top: 4px solid #00ffcc;
+        }
+        label {
+            display: block;
+            margin-top: 15px;
+            font-size: 14px;
+            color: #aaa;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: white;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        input:focus { outline: none; border-color: #00ffcc; }
+        .stats {
+            margin-top: 20px;
+            padding: 15px;
+            background: #252525;
+            border-radius: 8px;
+        }
+        .stats p { margin: 8px 0; font-size: 15px; }
+        .stats span { color: #00ffcc; font-weight: bold; }
+        .logout-btn {
+            background: #ff4d4d;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .logout-btn:hover { background: #ff1a1a; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>SIP & Goal Simulator Matrix</h1>
+        <button class="logout-btn" onclick="window.location.href='/'">Log Out</button>
+    </header>
+
+    <div class="container">
+        <!-- Input Controls Panel -->
+        <div class="card">
+            <h2>Simulation Controls</h2>
+            
+            <label for="monthlyInvestment">Monthly SIP Contribution ($)</label>
+            <input type="number" id="monthlyInvestment" value="5000" oninput="calculateSIP()">
+
+            <label for="annualReturn">Expected Annual Return Rate (%)</label>
+            <input type="number" id="annualReturn" value="12" step="0.5" oninput="calculateSIP()">
+
+            <label for="timeYears">Investment Timeframe (Years)</label>
+            <input type="number" id="timeYears" value="15" oninput="calculateSIP()">
+
+            <label for="targetGoal">Target Financial Goal ($)</label>
+            <input type="number" id="targetGoal" value="2500000" oninput="calculateSIP()">
+
+            <div class="stats">
+                <p>Total Invested: <span id="totalInvested">$0</span></p>
+                <p>Estimated Wealth: <span id="futureValue">$0</span></p>
+                <p>Wealth Gained: <span id="totalGain">$0</span></p>
+                <p style="margin-top: 15px; border-top: 1px solid #444; padding-top: 10px;">
+                    Time to Reach Goal: <span id="goalTimeline" style="color: #ffcc00;">Calculating...</span>
+                </p>
+            </div>
+        </div>
+
+        <!-- Chart Visualization Panel -->
+        <div class="card">
+            <h2>Wealth Growth Projection</h2>
+            <div style="position: relative; height: 400px; width: 100%;">
+                <canvas id="sipChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let sipChart = null;
+
+        function calculateSIP() {
+            const P = parseFloat(document.getElementById('monthlyInvestment').value) || 0;
+            const annualRate = parseFloat(document.getElementById('annualReturn').value) || 0;
+            const years = parseInt(document.getElementById('timeYears').value) || 0;
+            const target = parseFloat(document.getElementById('targetGoal').value) || 0;
+
+            const i = annualRate / 12 / 100; // Monthly interest rate
+            const months = years * 12;
+
+            let labels = [];
+            let investedData = [];
+            let totalValueData = [];
+            
+            let futureVal = 0;
+            let investedAmt = 0;
+            let matchedGoalMonth = null;
+
+            for (let m = 1; m <= months; m++) {
+                investedAmt += P;
+                // Compound interest formula for SIP: M = P * [((1 + i)^n - 1) / i] * (1 + i)
+                futureVal = P * ((Math.pow(1 + i, m) - 1) / i) * (1 + i);
+
+                // Track yearly milestones for cleaner chart plotting
+                if (m % 12 === 0 || m === 1) {
+                    labels.push(`Year ${m / 12}`);
+                    investedData.push(Math.round(investedAmt));
+                    totalValueData.push(Math.round(futureVal));
+                }
+
+                // Check when target goal is hit
+                if (!matchedGoalMonth && futureVal >= target) {
+                    matchedGoalMonth = m;
+                }
+            }
+
+            // Update text statistics
+            document.getElementById('totalInvested').innerText = `$${investedAmt.toLocaleString()}`;
+            document.getElementById('futureValue').innerText = `$${Math.round(futureVal).toLocaleString()}`;
+            document.getElementById('totalGain').innerText = `$${Math.round(futureVal - investedAmt).toLocaleString()}`;
+
+            if (matchedGoalMonth) {
+                const targetYears = Math.floor(matchedGoalMonth / 12);
+                const targetMonths = matchedGoalMonth % 12;
+                document.getElementById('goalTimeline').innerText = `${targetYears} Years & ${targetMonths} Months`;
+                document.getElementById('goalTimeline').style.color = '#00ffcc';
+            } else {
+                document.getElementById('goalTimeline').innerText = 'Target exceeds timeframe!';
+                document.getElementById('goalTimeline').style.color = '#ff4d4d';
+            }
+
+            updateChart(labels, investedData, totalValueData);
+        }
+
+        function updateChart(labels, invested, total) {
+            const ctx = document.getElementById('sipChart').getContext('2d');
+            
+            if (sipChart) {
+                sipChart.destroy();
+            }
+
+            sipChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Total Value ($)',
+                            data: total,
+                            borderColor: '#00ffcc',
+                            backgroundColor: 'rgba(0, 255, 204, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.3
+                        },
+                        {
+                            label: 'Invested Amount ($)',
+                            data: invested,
+                            borderColor: '#888888',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#e0e0e0' } }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#aaa' }, grid: { color: '#2a2a2a' } },
+                        y: { ticks: { color: '#aaa' }, grid: { color: '#2a2a2a' } }
+                    }
+                }
+            });
+        }
+
+        // Run calculation on load
+        window.onload = calculateSIP;
+    </script>
+</body>
+</html>

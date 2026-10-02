@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIP Simulator - Register</title>
+    <style>
+        body {
+            background-color: #121212; color: #e0e0e0;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; margin: 0;
+        }
+        .login-box {
+            background-color: #1e1e1e; padding: 40px; border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.8); text-align: center;
+            width: 300px; border-top: 4px solid #ffcc00;
+        }
+        h2 { margin-top: 0; color: #ffcc00; }
+        input {
+            display: block; width: 90%; margin: 15px auto; padding: 10px;
+            background: #2a2a2a; border: 1px solid #444; color: white; border-radius: 5px;
+        }
+        input:focus { outline: none; border-color: #ffcc00; }
+        button {
+            background-color: #ffcc00; color: #121212; border: none;
+            padding: 10px 20px; margin-top: 15px; cursor: pointer;
+            border-radius: 5px; font-weight: bold; width: 96%; transition: 0.3s;
+        }
+        button:hover { background-color: #e6b800; box-shadow: 0 0 10px #ffcc00; }
+        a { color: #888; text-decoration: none; font-size: 13px; display: block; margin-top: 15px; }
+        a:hover { color: white; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h2>New Agent Registration</h2>
+        <form action="/api/signup" method="POST">
+            <input type="text" name="username" placeholder="Choose a Username" required>
+            <input type="password" name="password" placeholder="Create a Password" required>
+            <button type="submit">Create Account</button>
+        </form>
+        <a href="/">Already have an account? Log in here.</a>
+    </div>
+</body>
+</html>
